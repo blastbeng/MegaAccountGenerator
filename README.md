@@ -1,5 +1,5 @@
 # MegaAccountGenerator
-Simple bash script to generate mega accounts using a self hosted mail server
+Simple bash script to generate multiple mega accounts using a self hosted mail server
 
 
 You need to install tmux, mutt and megacmd (https://github.com/meganz/MEGAcmd)
