@@ -1,0 +1,19 @@
+#!/bin/sh
+is_mounted() {
+    mount | awk -v DIR="$1" '{if ($3 == DIR) { exit 0}} ENDFILE{exit -1}'
+}
+
+input="/var/lib/mailservermega/generated-emails.txt"
+IFS=''
+paths=""
+while read data; do
+	path=$(echo $data | awk '{split($0,a," "); print a[3]}')
+	mount="/var/lib/mailservermega/mnt/$path"
+	if is_mounted $mount; then
+		paths="$paths:$mount"
+	fi
+done < "$input"
+
+paths="${paths:1}"
+
+/usr/bin/mergerfs -o defaults,allow_other,use_ino,category.create=mfs,moveonenospc=true,minfreespace=1M $paths /var/lib/mailservermega/mnt/merged

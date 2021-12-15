@@ -47,6 +47,7 @@ case "$arg" in
 		if ! [[ $COUNT =~ $re ]] ; then
    			echo "Error: Not a number" >&2; exit 1
 		fi
+		/usr/local/bin/umountMegaMerged
 		for i in $(seq $COUNT); do
 			#name=$(/usr/local/bin/genRndUser)
 			#pass=$(/usr/local/bin/genRndPass)
@@ -69,7 +70,7 @@ case "$arg" in
 			#   sed 's/./&\n/g' | grep . | shuf | tr -d '\n')
 	
 	
-			user="$name@example.com"
+			user="$name@$DMSDOMAIN"
 	
 			#echo $user
 			#echo $pass
@@ -117,7 +118,7 @@ case "$arg" in
                                 sleep 1
 				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
                                 sleep 1
-				/usr/bin/tmux new-session -d -s "mutt" /usr/bin/mutt -f "imaps://$user:$pass@example.com/INBOX"
+				/usr/bin/tmux new-session -d -s "mutt" /usr/bin/mutt -f "imaps://$user:$pass@$DMSDOMAIN/INBOX"
 				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
                                 sleep 1
                                 echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
@@ -148,7 +149,6 @@ case "$arg" in
 			sudo /bin/systemctl start rclone-mega@$name.service
 
 		done
-		/usr/local/bin/umountMegaMerged
 		/usr/local/bin/mountMegaMerged
 		;;
 	-r)
@@ -157,16 +157,17 @@ case "$arg" in
 		cat $MAILFILE
 		echo "Choose which email you'd like to delete:"
 		read mail
+		/usr/local/bin/umountMegaMerged
 		$DMSPATH/setup.sh email del -y $mail
 		name=$(echo $mail | awk '{split($0,a,"@"); print a[1]}')
 		rm -rf "$MOUNTDIR/$name"
 		rm -rf "$RCLONECONFDIR/$name.conf"
 		sudo /bin/systemctl stop rclone-mega@$name.service
                 sudo /bin/systemctl disable rclone-mega@$name.service
-		/usr/local/bin/umountMegaMerged
                 /usr/local/bin/mountMegaMerged
 		;;
 	-p)
+		/usr/local/bin/umountMegaMerged
 		cd $DMSPATH
 		input="$MAILFILE"
 		#cat $input
@@ -182,9 +183,9 @@ case "$arg" in
 	          sudo /bin/systemctl stop rclone-mega@$name.service
 	          sudo /bin/systemctl disable rclone-mega@$name.service
 		done < "$input"
-                /usr/local/bin/umountMegaMerged
 		;;
 	-f)
+		/usr/local/bin/umountMegaMerged
 		input="$MAILFILE"
                 IFS=''
 		declare -i lineno=0
@@ -203,7 +204,6 @@ case "$arg" in
 				sed -i "1 d" "$input"
 			fi
                 done < "$input"
-		/usr/local/bin/umountMegaMerged
                 /usr/local/bin/mountMegaMerged
 		;;
 	-e)
@@ -226,6 +226,7 @@ case "$arg" in
                 done < "$input"
 		;;
 	-m)
+		/usr/local/bin/umountMegaMerged
 		input="$MAILFILE"
                 IFS=''
                 while read data; do
@@ -235,7 +236,6 @@ case "$arg" in
 				sudo /bin/systemctl restart rclone-mega@$name.service
       			fi
 	        done < "$input"
-		/usr/local/bin/umountMegaMerged
 		/usr/local/bin/mountMegaMerged
 		;;
 	-u)

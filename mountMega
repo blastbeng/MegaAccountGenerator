@@ -1,0 +1,18 @@
+#!/bin/sh
+dir=$1
+dir="${dir:1}"
+
+/usr/bin/rclone mount \
+        --config=/var/lib/mailservermega/rclone/$dir.conf \
+        --allow-other \
+	--cache-tmp-upload-path=/tmp/rclone/upload$dir \
+        --cache-chunk-path=/tmp/rclone/chunks$dir \
+        --cache-workers=8 \
+        --cache-writes \
+        --cache-dir=/tmp/rclone/vfs$dir \
+        --cache-db-path=/tmp/rclone/db$dir \
+	--stats=0 \
+        --checkers=16 \
+	--dir-cache-time=60m \
+        --cache-info-age=60m \
+        --vfs-cache-mode writes $dir:/ /var/lib/mailservermega/mnt/$dir

@@ -1,0 +1,16 @@
+[Unit]
+Description=Mega Rclone Mount on %f
+Requires=network-online.target
+
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/local/bin/umountMega %f
+ExecStart=/usr/local/bin/mountMega %f
+ExecStop=/usr/local/bin/umountMega %f
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
