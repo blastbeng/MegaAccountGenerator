@@ -11,7 +11,7 @@ MAILSEARCHPATH="$DMSDATA/$DMSDOMAIN"
 
 if [ ! -d $CONFIGDIR ] || [ ! -d $MOUNTDIR ]; then
 	sudo mkdir -p $MOUNTDIR
-	sudo chown -R blast:blast $CONFIGDIR
+	sudo chown -R user:user $CONFIGDIR
 fi
 
 echo "Available options: "
