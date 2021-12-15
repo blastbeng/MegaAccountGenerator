@@ -31,31 +31,12 @@ case $OPERATION in
    			echo "Error: Not a number" >&2; exit 1
 		fi
 		for i in $(seq $COUNT); do
-			#name=$(/usr/local/bin/genRndUser)
-			#pass=$(/usr/local/bin/genRndPass)
 		
 	        	name=$(tr -dc a-z0-9 </dev/urandom | head -c $(shuf -i 16-24 -n 1) ; echo '')
 			pass=$(tr -dc A-Za-z0-9 </dev/urandom | head -c $(shuf -i 16-24 -n 1) ; echo '')
-
-	        	#printf -v small "%s" {a..z}
-			#printf -v large "%s" {A..Z}
-			#printf -v digit "%s" {0..9}
-			#special='@#$%^&*+=<>?' # Edit: Single quotes, not double quotes
-	
-			#get4() {
-			#   for s in small large digit special; do
-			#      echo "${!s}" | sed 's/./&\n/g' | grep . | shuf | head -1
-			#   done| tr -d '\n'
-			#}
-	
-			#pass=$(echo "$(get4)$(cat /dev/urandom | tr -dc 'a-zA-Z0-9$%&%' | fold -w $(shuf -i 8-14 -n 1) | head -n 1)" |
-			#   sed 's/./&\n/g' | grep . | shuf | tr -d '\n')
 	
 	
 			user="$name@exampledomain.com"
-	
-			#echo $user
-			#echo $pass
 	
 			cd $DMSPATH
 	
@@ -107,13 +88,7 @@ case $OPERATION in
 				/usr/bin/tmux kill-session -t "mutt"
 			done
 
-        		#link="$(cat "$path/*.mail*" | grep '<a id="bottom-button" href="https://mega.nz/#confirm' | sed -e 's/<a /\n<a /g' | sed -e 's/<a .*href=['"'"'"]//' -e 's/["'"'"'].*$//' -e '/^$/ d')"
-
-			link="$(cat $path/*.mail* | grep -m1 https://mega.nz/#confirm | xargs)"
-			
-			#echo "$megaregout"
-
-			#echo "$megaverifycmd"
+        		link="$(cat $path/*.mail* | grep -m1 https://mega.nz/#confirm | xargs)"
 
 			/usr/bin/$megaverifycmd $link
 
@@ -131,7 +106,6 @@ case $OPERATION in
 	delall)
 		cd $DMSPATH
 		input="$MAILFILE"
-		#cat $input
 		declare -i lineno=0
 		IFS=''
 		while read data; do
