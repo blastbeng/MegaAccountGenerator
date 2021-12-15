@@ -1,0 +1,6 @@
+#!/bin/sh
+substate=$(systemctl show -p SubState --value $1)
+if [ "$substate" != "$2" ]; then
+	echo "restarting $1"
+	systemctl restart $1
+fi
