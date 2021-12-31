@@ -2,17 +2,29 @@
 dir=$1
 dir="${dir:1}"
 
+conffile="/var/lib/mailservermega/rclone/$dir.conf"
+
+mkdir -p /var/lib/mailservermega/mnt/$dir
+
 /usr/bin/rclone mount \
-        --config=/var/lib/mailservermega/rclone/$dir.conf \
+        --config=$conffile \
+        --use-mmap \
+        --vfs-cache-mode writes \
         --allow-other \
-	--cache-tmp-upload-path=/tmp/rclone/upload$dir \
-        --cache-chunk-path=/tmp/rclone/chunks$dir \
-        --cache-workers=8 \
+        --dir-cache-time=10s \
+        --cache-info-age=10s \
+	--vfs-cache-max-age=1m \
+        --vfs-cache-max-size=5G \
+        --vfs-read-chunk-size-limit=512M \
+        --cache-tmp-upload-path=/mnt/m2/tmp/rclone/upload \
+        --cache-chunk-path=/mnt/m2/tmp/rclone/chunks \
+        --cache-dir=/mnt/m2/tmp/rclone/vfs \
+        --cache-db-path=/mnt/m2/tmp/rclone/db \
+        --cache-workers=4 \
         --cache-writes \
-        --cache-dir=/tmp/rclone/vfs$dir \
-        --cache-db-path=/tmp/rclone/db$dir \
-	--stats=0 \
-        --checkers=16 \
-	--dir-cache-time=60m \
-        --cache-info-age=60m \
-        --vfs-cache-mode writes $dir:/ /var/lib/mailservermega/mnt/$dir
+        --stats=0 \
+        --checkers=8 \
+	--mega-hard-delete \
+        --uid=1000 \
+        --gid=1000 \
+        --skip-links $dir:/ /var/lib/mailservermega/mnt/$dir

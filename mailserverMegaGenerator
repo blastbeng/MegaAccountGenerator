@@ -3,10 +3,7 @@ CONFIGDIR="/var/lib/mailservermega"
 MOUNTDIR="$CONFIGDIR/mnt"
 RCLONECONFDIR="$CONFIGDIR/rclone"
 MAILFILE="$CONFIGDIR/generated-emails.txt"
-DMSPATH="/opt/docker-mailserver"
-DMSDATA="$DMSPATH/docker-data/dms/mail-data"
-DMSDOMAIN="example.com"
-MAILSEARCHPATH="$DMSDATA/$DMSDOMAIN"
+RCLONECRYPTPASS="YOURCRYPTEDPASS"
 
 #prechecks
 
@@ -17,17 +14,96 @@ is_mounted() {
     mount | awk -v DIR="$1" '{if ($3 == DIR) { exit 0}} ENDFILE{exit -1}'
 }
 
+
+addaccounts() {
+    COUNT=$1
+    for i in $(seq $COUNT); do
+
+	email=$(/usr/bin/tmpmail -g)
+
+	IFS='@' read -ra arremail <<< "$email"
+
+	name=${arremail[0]}
+	pass=$(tr -dc A-Za-z0-9 </dev/urandom | head -c $(shuf -i 16-24 -n 1) ; echo '')
+
+	megaregout=$(/usr/bin/megareg --register --scripted --email $email --name $name --password $pass)
+	megaverifycmd=${megaregout::-6}
+
+	megalink=""
+
+	re='^[0-9]+$'
+
+	while true
+	do
+        mailcheck="$(tmpmail | sed -n 3p | sed -e 's/^\(.\{9\}\).*/\1/')"
+        if ! [[ $mailcheck =~ $re ]] ; then
+                sleep 5
+        else
+                mailid="$(tmpmail | sed -n 3p | sed -e 's/^\(.\{9\}\).*/\1/')"
+                megalink="$(tmpmail -t $mailid | grep confirm | xargs)"
+                megalink="https://mega.nz/#$megalink"
+                break
+        fi
+	done
+	
+	megaresult="$(/usr/bin/$megaverifycmd $megalink)"
+
+	if [ "$megaresult" == "Account registered successfully!" ]; then
+
+                RCLONEFILE="$RCLONECONFDIR/$name.conf"
+
+                mkdir "$MOUNTDIR/$name"
+
+		rclonepass=$(/usr/bin/rclone obscure $pass)
+		echo "New account registered"
+		echo -e "$email $pass $name 1" >> $MAILFILE
+		echo -e "[base-$name]" >> $RCLONEFILE
+		echo -e "type = mega" >> $RCLONEFILE
+		echo -e "user = $email" >> $RCLONEFILE
+		echo -e "pass = $rclonepass" >> $RCLONEFILE
+		echo -e "" >> $RCLONEFILE
+		echo -e "[$name]" >> $RCLONEFILE
+		echo -e "type = crypt" >> $RCLONEFILE
+		echo -e "remote = base-$name:/" >> $RCLONEFILE
+		echo -e "password = $RCLONECRYPTPASS" >> $RCLONEFILE		
+		
+
+
+        	sudo /bin/systemctl enable rclone-mega@$name.service
+	else
+		echo "Error registering new account"
+		exit 1
+	fi
+
+    done
+}
+
+containsElement () {
+        local e match="$1"
+        shift
+        for e; do [[ "$e" == "$match" ]] && return 0; done
+        return 1
+}
+
 usage() {
-		echo "Available options: "
-                echo "  -a : add new account(s)"
-                echo "  -r : remove and delete single account"
-                echo "  -p : purge and delete all accounts"
-                echo "  -f : fix and then delete non working mega accounts"
-                echo "  -e : enable all working mega mounts"
-                echo "  -d : disable all mega mounts"
-                echo "  -m : mount all working mega accounts"
-                echo "  -u : umount all mega accounts"
-                echo "  -h : show this help"
+	echo "Available options: "
+	echo "  -s    : add single account"
+        echo "  -a    : add new account(s)"
+        echo "  -d    : remove and delete single account"
+        echo "  -p    : purge and delete all accounts"
+        echo "  -f    : fix and then delete non working mega accounts"
+        echo "  -e    : enable all working mega mounts"
+        echo "  -x    : disable all mega mounts"
+        echo "  -m    : mount all working mega accounts and mergedfs"
+        echo "  -u    : umount all mega accounts and mergedfs"
+	echo "  -r    : remount all mega accounts and mergedfs"
+	echo "  -E    : enable merged file system"
+	echo "  -X    : disable merged file system"
+        echo "  -M    : mount merged file system"
+	echo "  -U    : umount merged file system"
+	echo "  -R    : remount merged file system"
+	echo "  -F    : force umount merged file system"
+	echo "  -h    : show this help"
 }
 
 if [ $# -eq 0 ]
@@ -39,7 +115,9 @@ fi
 for arg in "$@"; do
 shift
 case "$arg" in 
-
+        -s)
+                addaccounts 1
+                ;;
 	-a)
 		echo "Enter the number of the accounts you wish to create:"
 		read COUNT 
@@ -47,164 +125,69 @@ case "$arg" in
 		if ! [[ $COUNT =~ $re ]] ; then
    			echo "Error: Not a number" >&2; exit 1
 		fi
-		/usr/local/bin/umountMegaMerged
-		for i in $(seq $COUNT); do
-			#name=$(/usr/local/bin/genRndUser)
-			#pass=$(/usr/local/bin/genRndPass)
 		
-	        	name=$(tr -dc a-z0-9 </dev/urandom | head -c $(shuf -i 16-24 -n 1) ; echo '')
-			pass=$(tr -dc A-Za-z0-9 </dev/urandom | head -c $(shuf -i 16-24 -n 1) ; echo '')
-
-	        	#printf -v small "%s" {a..z}
-			#printf -v large "%s" {A..Z}
-			#printf -v digit "%s" {0..9}
-			#special='@#$%^&*+=<>?' # Edit: Single quotes, not double quotes
-	
-			#get4() {
-			#   for s in small large digit special; do
-			#      echo "${!s}" | sed 's/./&\n/g' | grep . | shuf | head -1
-			#   done| tr -d '\n'
-			#}
-	
-			#pass=$(echo "$(get4)$(cat /dev/urandom | tr -dc 'a-zA-Z0-9$%&%' | fold -w $(shuf -i 8-14 -n 1) | head -n 1)" |
-			#   sed 's/./&\n/g' | grep . | shuf | tr -d '\n')
-	
-	
-			user="$name@$DMSDOMAIN"
-	
-			#echo $user
-			#echo $pass
-	
-			cd $DMSPATH
-	
-			$DMSPATH/setup.sh email add $user $pass
-
-			$DMSPATH/setup.sh quota set $user 50M
-	
-			echo -e "$user $pass $name 1" >> $MAILFILE
-
-			RCLONEFILE="$RCLONECONFDIR/$name.conf"
-
-			rclonepass=$(/usr/bin/rclone obscure $pass)
-
-			echo -e "[$name]" >> $RCLONEFILE
-			echo -e "type = mega" >> $RCLONEFILE	
-			echo -e "user = $user" >> $RCLONEFILE
-			echo -e "pass = $rclonepass" >> $RCLONEFILE
-		 
-		        mkdir "$MOUNTDIR/$name"
-	
-		        path="$MAILSEARCHPATH/$name/cur"
-	
-			megaregout=$(/usr/bin/megareg --register --scripted --email $user --name $name --password $pass)
-
-			megaverifycmd=${megaregout::-6}
-
-			echo "Now waiting for the confirmation email"
-
-			date1=`date +%s`			
-
-			until [ -f $path/*.mail* ]
-			do
-				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-				sleep 1
-				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-				sleep 1
-				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-				sleep 1
-				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-				sleep 1
-				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-                                sleep 1
-				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-                                sleep 1
-				/usr/bin/tmux new-session -d -s "mutt" /usr/bin/mutt -f "imaps://$user:$pass@$DMSDOMAIN/INBOX"
-				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-                                sleep 1
-                                echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-                                sleep 1
-                                echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-                                sleep 1
-                                echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-                                sleep 1
-                                echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-                                sleep 1
-				echo -ne "$(date -u --date @$((`date +%s` - $date1)) +%H:%M:%S)\r"
-                                sleep 1
-				/usr/bin/tmux kill-session -t "mutt"
-			done
-
-        		#link="$(cat "$path/*.mail*" | grep '<a id="bottom-button" href="https://mega.nz/#confirm' | sed -e 's/<a /\n<a /g' | sed -e 's/<a .*href=['"'"'"]//' -e 's/["'"'"'].*$//' -e '/^$/ d')"
-
-			link="$(cat $path/*.mail* | grep -m1 https://mega.nz/#confirm | xargs)"
-			
-			#echo "$megaregout"
-
-			#echo "$megaverifycmd"
-
-			/usr/bin/$megaverifycmd $link
-
-			sudo /bin/systemctl enable rclone-mega@$name.service
-
-			sudo /bin/systemctl start rclone-mega@$name.service
-
-		done
-		/usr/local/bin/mountMegaMerged
+	        addaccounts $COUNT
 		;;
-	-r)
-		cd $DMSPATH
-		#$DMSPATH/setup.sh email list
-		cat $MAILFILE
-		echo "Choose which email you'd like to delete:"
-		read mail
-		/usr/local/bin/umountMegaMerged
-		$DMSPATH/setup.sh email del -y $mail
-		name=$(echo $mail | awk '{split($0,a,"@"); print a[1]}')
-		rm -rf "$MOUNTDIR/$name"
-		rm -rf "$RCLONECONFDIR/$name.conf"
-		sudo /bin/systemctl stop rclone-mega@$name.service
-                sudo /bin/systemctl disable rclone-mega@$name.service
-                /usr/local/bin/mountMegaMerged
+	-d)
+		cc=1
+		while IFS= read -r line
+		do
+			echo "$cc - $line"
+		cc=$(( cc + 1 ))
+		done < "$MAILFILE"
+		
+		echo "Enter the number of the account you wish to delete:"
+                read COUNT
+                re='^[0-9]+$'
+                if ! [[ $COUNT =~ $re ]] ; then
+                        echo "Error: Not a number" >&2; exit 1
+                fi
+
+		sed -i '$COUNTd' $MAILFILE
+
+		sudo /bin/systemctl disable rclone-mega@$name.service
+		
 		;;
 	-p)
-		/usr/local/bin/umountMegaMerged
-		cd $DMSPATH
-		input="$MAILFILE"
-		#cat $input
-		declare -i lineno=0
-		IFS=''
-		while read data; do
-		  user=$(echo $data | awk '{split($0,a," "); print a[1]}')
-		  $DMSPATH/setup.sh email del -y $user
-		  let ++lineno
-		  sed -i "1 d" "$input"
-		  rm -rf "$MOUNTDIR/$user"
-		  rm -rf "$RCLONECONFDIR/$user.conf"
-	          sudo /bin/systemctl stop rclone-mega@$name.service
-	          sudo /bin/systemctl disable rclone-mega@$name.service
-		done < "$input"
+		echo "TODO"
 		;;
 	-f)
-		/usr/local/bin/umountMegaMerged
-		input="$MAILFILE"
-                IFS=''
-		declare -i lineno=0
-                while read data; do
-                        name=$(echo $data | awk '{split($0,a," "); print a[3]}')
-                        isworking=$(echo $data | awk '{split($0,a," "); print a[4]}')
-			path="/var/lib/mailservermega/mnt/$name"
-			sudo /usr/local/bin/restartSystemdIfNotRunning rclone-mega@$name.service running
-			sleep 10
-			let ++lineno
-                        if [ $isworking == "0" ] || ! is_mounted $path; then
-				sudo /bin/systemctl stop rclone-mega@$name.service
-                               	sudo /bin/systemctl disable rclone-mega@$name.service
-				rm -rf "$MOUNTDIR/$name"
-                  		rm -rf "$RCLONECONFDIR/$name.conf"
-				sed -i "1 d" "$input"
-			fi
-                done < "$input"
-                /usr/local/bin/mountMegaMerged
+		count=0
+		arrayfailed=()
+		while IFS= read -r line; do
+        		line=${line::-2}
+        		if ! containsElement "$line" "${arrayfailed[@]}" && grep -Fxq "$line" "$MAILFILE"; then
+                		arrayfailed+=( $line )
+        		fi
+		done < <( journalctl -u rclone-mega@* -n 200 | grep "couldn't login: Try again" | awk -F'"' '{print $2}')
+
+		for i in "${arrayfailed[@]}"
+		do
+			mntpath="$MOUNTDIR/$i"
+			cnffile="$RCLONECONFDIR/$i.conf"
+			service="rclone-mega@$i.service"
+			sudo systemctl stop $service
+			sudo systemctl disable $service
+			rm -rf $mntpath
+			rm -rf $cnffile
+			sed -i '/$i/d' $MAILFILE			
+		done
+		
+		if (( ${#arrayfailed[@]} )); then
+    			sudo systemctl restart rclone-merged.service
+			echo "Some services were removed, restarting reclone-merged.service..."
+		else
+			echo "All services are working, skipping..."
+		fi
+
+		while IFS= read -r mountline; do
+        	dirmount="$MOUNTDIR/$mountline"
+        	if ! mountpoint -q -- "$dirmount"; then
+                	printf '%s\n' "$dirmount is not a mount point, deleting it"
+                	rm -rf $dirmount
+        	fi
+		done < <( ls --ignore=merged "$MOUNTDIR/")
+
 		;;
 	-e)
 		input="$MAILFILE"
@@ -217,7 +200,7 @@ case "$arg" in
 			fi
 		done < "$input"
 		;;
-	-d)
+	-x)
 		input="$MAILFILE"
                 IFS=''
                 while read data; do
@@ -226,30 +209,68 @@ case "$arg" in
                 done < "$input"
 		;;
 	-m)
-		/usr/local/bin/umountMegaMerged
-		input="$MAILFILE"
-                IFS=''
-                while read data; do
-                        name=$(echo $data | awk '{split($0,a," "); print a[3]}')
-                        isworking=$(echo $data | awk '{split($0,a," "); print a[4]}')
-			if [ $isworking == "1" ]; then
-				sudo /bin/systemctl restart rclone-mega@$name.service
-      			fi
-	        done < "$input"
-		/usr/local/bin/mountMegaMerged
+		#input="$MAILFILE"
+                #IFS=''
+                #while read data; do
+                #        name=$(echo $data | awk '{split($0,a," "); print a[3]}')
+                #        isworking=$(echo $data | awk '{split($0,a," "); print a[4]}')
+		#	if [ $isworking == "1" ]; then
+		#		sudo /bin/systemctl start rclone-mega@$name.service
+      		#	fi
+	        #done < "$input"
+		sudo /bin/systemctl start rclone-mega@*.service --all
+		sleep 30
+		sudo /bin/systemctl start rclone-merged.service
 		;;
 	-u)
-		/usr/local/bin/umountMegaMerged
-		input="$MAILFILE"
-                IFS=''
-                while read data; do
-                        name=$(echo $data | awk '{split($0,a," "); print a[3]}')
-                        sudo /bin/systemctl stop rclone-mega@$name.service
-                done < "$input"
+		sudo /bin/systemctl stop rclone-merged.service
+		sudo /bin/systemctl stop rclone-mega@*.service
+		#input="$MAILFILE"
+                #IFS=''
+                #while read data; do
+                #        name=$(echo $data | awk '{split($0,a," "); print a[3]}')
+                #        sudo /bin/systemctl stop rclone-mega@$name.service
+                #done < "$input"
+		;;
+	-r)
+		sudo /bin/systemctl stop rclone-merged.service
+		#input="$MAILFILE"
+                #IFS=''
+                #while read data; do
+                #        name=$(echo $data | awk '{split($0,a," "); print a[3]}')
+                #        isworking=$(echo $data | awk '{split($0,a," "); print a[4]}')
+                #        if [ $isworking == "1" ]; then
+                #                sudo /bin/systemctl restart rclone-mega@$name.service
+                #        fi
+                #done < "$input"
+		sudo /bin/systemctl stop rclone-mega@*.service
+                sudo /bin/systemctl start rclone-mega@*.service --all
+		sleep 120
+                sudo /bin/systemctl start rclone-merged.service
+		;;
+	-E)
+		sudo /bin/systemctl enable rclone-merged.service
+		;;
+	-X)
+		sudo /bin/systemctl disable rclone-merged.service
+        	;;
+	-M)
+		sudo /bin/systemctl start rclone-merged.service
+                ;;
+        -U)
+		sudo /bin/systemctl stop rclone-merged.service
+                ;;	
+	-R)
+		sudo /bin/systemctl restart rclone-merged.service
+                ;;
+	-F)
+		sudo umount -l /var/lib/mailservermega/mnt/merged
+		sudo /bin/systemctl stop rclone-merged.service
 		;;
 	-h)
-		usage
-                ;;
+        echo "Wrong argument provided"
+        usage
+        ;;
 	*)
 		echo "Wrong argument provided"
 		usage

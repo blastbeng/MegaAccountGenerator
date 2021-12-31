@@ -8,3 +8,4 @@ sudo cp umountMegaMerged /usr/local/bin/umountMegaMerged
 sudo cp restartSystemdIfNotRunning /usr/local/bin/restartSystemdIfNotRunning
 
 sudo cp rclone-mega@.service /lib/systemd/system/rclone-mega@.service
+sudo cp rclone-merged.service /lib/systemd/system/rclone-merged.service

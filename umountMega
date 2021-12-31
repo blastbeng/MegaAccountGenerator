@@ -1,3 +1,34 @@
 #!/bin/sh
-/bin/umount /var/lib/mailservermega/mnt$1
-exit 0
+is_mounted() {
+    mount | awk -v DIR="$1" '{if ($3 == DIR) { exit 0}} ENDFILE{exit -1}'
+}
+
+#input="/var/lib/mailservermega/generated-emails.txt"
+#IFS=''
+#paths=""
+#while read data; do
+#	path=$(echo $data | awk '{split($0,a," "); print a[3]}')
+#	mount="/var/lib/mailservermega/mnt/$path"
+#	if is_mounted $mount; then
+#		paths="$paths:$mount"
+#	fi
+#done < "$input"
+
+#paths="${paths:1}"
+
+
+#patharray=(`df | grep -v 'merged' | grep '/var/lib/mailservermega/mnt' | awk '{print $NF}'`)
+rclonemegaarray=(`ls /etc/systemd/system/default.target.wants/ | grep rclone-mega@`)
+for service in "${rclonemegaarray[@]}"
+do
+	mount="${service:12}"
+	mount="${mount:0:-8}"
+	mount="/var/lib/mailservermega/mnt/$mount"
+	if is_mounted $mount; then
+		paths="$paths:$mount"
+	fi
+done
+
+paths="${paths:1}"
+
+/usr/bin/mergerfs -o defaults,nonempty,allow_other,use_ino,moveonenospc=true,category.create=mfs,dropcacheonclose=true,minfreespace=8G,fsname=mergerfsmega $paths /var/lib/mailservermega/mnt/merged

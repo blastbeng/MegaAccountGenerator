@@ -1,0 +1,16 @@
+[Unit]
+Description=Megerfs mega Service
+Requires=network-online.target
+
+After=network-online.target
+
+[Service]
+Type=forking
+ExecStart=/usr/local/bin/mountMegaMerged
+ExecStop=/usr/local/bin/umountMegaMerged
+Restart=on-failure
+RestartSec=10
+TimeoutStopSpec=600
+
+[Install]
+WantedBy=default.target
